@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スマホ対応マインドマップ生成アプリ</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-light: #e0e7ff;
+            --primary-dark: #3730a3;
+            --accent-color: #10b981;
+            --accent-light: #d1fae5;
+            --danger-color: #ef4444;
+            --danger-light: #fee2e2;
+            --text-color: #1f2937;
+            --text-light: #6b7280;
+            --bg-color: #f9fafb;
+            --card-color: #ffffff;
+            --border-color: #e5e7eb;
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: var(--shadow);
+            z-index: 100;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - 56px); /* ヘッダーの高さを考慮 */
+        }
+
+        .input-container {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            height: 40%; /* スマホ向けデフォルト */
+            min-height: 200px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-color); /* 背景色を設定 */
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        .textarea-container {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(79, 70, 229, 0.2);
+            border: 2px dashed var(--primary-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .drop-zone.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .drop-zone-message {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            resize: none;
+            background-color: var(--card-color);
+            margin-bottom: 10px; /* ツールバーとのスペース */
+            min-height: 100px; /* 最小高さを確保 */
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        .textarea-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .char-count {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .btn-container {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-color); }
+        .btn-outline:hover { background-color: var(--bg-color); }
+        .btn-accent { background-color: var(--accent-color); color: white; }
+        .btn-accent:hover { background-color: var(--accent-color); opacity: 0.9; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-danger:hover { background-color: var(--danger-color); opacity: 0.9; }
+
+        .mindmap-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* マインドマップコンテナのスクロールのため */
+        }
+
+        .controls-container {
+            padding: 12px 16px;
+            background-color: var(--card-color);
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+            scrollbar-width: none; /* Firefox */
+        }
+        .controls-container::-webkit-scrollbar { display: none; /* Chrome, Safari */ }
+
+        .control-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-right: 16px;
+            white-space: nowrap;
+        }
+        .control-group:last-child { margin-right: 0; }
+
+        label { font-size: 14px; color: var(--text-light); margin-right: 4px; }
+
+        select {
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-color);
+            font-size: 14px;
+        }
+        select:focus { outline: none; border-color: var(--primary-color); }
+
+        .mindmap-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden; /* JSでドラッグ・ズームを制御 */
+            background-color: var(--card-color);
+            touch-action: manipulation; /* スマホでのピンチズーム等を無効化 */
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            display: flex;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--card-color);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color); /* 色を明示 */
+            cursor: pointer;
+        }
+
+        .node {
+            position: absolute;
+            padding: 10px 14px;
+            border-radius: 16px;
+            border: 2px solid;
+            max-width: 200px;
+            text-align: center;
+            word-wrap: break-word;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 2;
+            cursor: pointer;
+            user-select: none;
+            background-color: var(--card-color); /* 背景色指定 */
+            color: var(--text-color); /* 文字色指定 */
+            opacity: 0; /* 初期状態は非表示 */
+            animation: fadeIn 0.5s ease forwards; /* フェードインアニメーション */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+
+        .node.main { font-size: 18px; font-weight: 600; z-index: 3; }
+        .node.sub { font-size: 14px; }
+
+        .node.expanded::after {
+            content: "";
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            transform: translateX(-50%);
+        }
+
+        .connection {
+            position: absolute;
+            height: 2px;
+            background-color: #aaa; /* 少し明るめに */
+            transform-origin: 0 0;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0; /* 初期状態は非表示 */
+            animation: drawLine 0.8s ease forwards; /* 線描画アニメーション */
+        }
+
+        @keyframes drawLine {
+            from { width: 0; }
+            to { opacity: 1; } /* 幅はJSで設定 */
+        }
+
+
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.9);
+            z-index: 100;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(79, 70, 229, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        .loading-text { font-size: 14px; color: var(--text-color); }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .tooltip {
+            position: absolute;
+            padding: 6px 12px;
+            background-color: rgba(0, 0, 0, 0.75);
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: pre-wrap; /* 改行を反映 */
+            max-width: 300px; /* 最大幅 */
+        }
+
+        .feedback {
+            position: fixed;
+            bottom: -50px; /* 初期位置は画面外 */
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border-radius: 8px;
+            background-color: var(--text-color);
+            color: white;
+            z-index: 1000;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s ease-out;
+            max-width: 90%;
+            text-align: center;
+        }
+
+        .feedback.show { opacity: 1; bottom: 16px; /* 表示位置 */ }
+        .feedback.success { background-color: var(--accent-color); }
+        .feedback.error { background-color: var(--danger-color); }
+
+        /* Color classes */
+        .color-1 { border-color: #4f46e5; background-color: #e0e7ff; }
+        .color-2 { border-color: #0ea5e9; background-color: #e0f2fe; }
+        .color-3 { border-color: #10b981; background-color: #d1fae5; }
+        .color-4 { border-color: #f59e0b; background-color: #fef3c7; }
+        .color-5 { border-color: #ef4444; background-color: #fee2e2; }
+        .color-6 { border-color: #8b5cf6; background-color: #ede9fe; }
+        .color-7 { border-color: #ec4899; background-color: #fce7f3; }
+        .color-8 { border-color: #6366f1; background-color: #e0e7ff; }
+
+        .analysis-results {
+            background-color: var(--card-color);
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow);
+            max-height: 150px; /* 高さを制限 */
+            overflow-y: auto; /* スクロール可能に */
+        }
+
+        .analysis-results h3 { margin-bottom: 8px; font-size: 16px; }
+        .analysis-results p { font-size: 14px; margin-bottom: 4px; }
+
+        .keyword-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .keyword-chip {
+            padding: 4px 10px;
+            background-color: var(--primary-light);
+            color: var(--primary-color);
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .help-screen {
+            position: fixed; /* fixedに変更 */
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.75);
+            z-index: 1000;
+            display: none; /* 初期状態は非表示 */
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0; /* フェードイン用 */
+            transition: opacity 0.3s;
+        }
+        .help-screen.show {
+            display: flex;
+            opacity: 1;
+        }
+
+        .help-content {
+            background-color: var(--card-color);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+        .help-content h2 { margin-bottom: 16px; font-size: 20px; }
+        .help-section { margin-bottom: 20px; }
+        .help-section h3 { margin-bottom: 8px; font-size: 16px; color: var(--primary-color); }
+        .help-section p { margin-bottom: 8px; font-size: 14px; line-height: 1.5; }
+        .help-close { display: block; margin: 16px auto 0; }
+        .examples-section button { margin-right: 8px; margin-bottom: 8px; font-size: 12px; }
+
+        /* レスポンシブデザイン */
+        @media (min-width: 768px) {
+            .app-container { flex-direction: row; }
+            .input-container {
+                width: 35%;
+                height: 100%;
+                min-height: auto;
+                border-right: 1px solid var(--border-color);
+                border-bottom: none;
+            }
+            .mindmap-view { flex: 1; }
+            h1 { font-size: 1.75rem; }
+            .analysis-results { max-height: none; } /* PCでは高さ制限解除 */
+        }
+
+        /* スマホ最適化 */
+        @media (max-width: 767px) {
+            .btn-container { flex-wrap: wrap; }
+            .btn-container button { flex-basis: calc(50% - 4px); } /* 2列にする */
+            .input-container { height: 45%; } /* 少し高さを増やす */
+            .controls-container { padding: 8px; }
+            .control-group { margin-right: 10px; }
+            select, button { font-size: 13px; }
+            .zoom-controls { bottom: 12px; right: 12px; }
+            .zoom-btn { width: 36px; height: 36px; }
+            .help-content { max-height: 85vh; }
+        }
+
+        /* ダークモード */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #6366f1; --primary-light: #312e81; --primary-dark: #818cf8;
+                --accent-color: #10b981; --accent-light: #064e3b;
+                --danger-color: #f87171; --danger-light: #7f1d1d; /* 少し明るめに */
+                --text-color: #f9fafb; --text-light: #9ca3af;
+                --bg-color: #111827; --card-color: #1f2937; --border-color: #374151;
+                --shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            }
+            .color-1 { border-color: #4f46e5; background-color: #312e81; color: #e0e7ff; }
+            .color-2 { border-color: #0ea5e9; background-color: #0c4a6e; color: #e0f7fe; }
+            .color-3 { border-color: #10b981; background-color: #064e3b; color: #d1fae5; }
+            .color-4 { border-color: #f59e0b; background-color: #78350f; color: #fef3c7; }
+            .color-5 { border-color: #ef4444; background-color: #7f1d1d; color: #fee2e2; }
+            .color-6 { border-color: #8b5cf6; background-color: #4c1d95; color: #ede9fe; }
+            .color-7 { border-color: #ec4899; background-color: #831843; color: #fce7f3; }
+            .color-8 { border-color: #6366f1; background-color: #312e81; color: #e0e7ff; }
+            .node { color: var(--text-color); }
+            .connection { background-color: #52525b; } /* ダークモード用の線色 */
+            .loading { background-color: rgba(17, 24, 39, 0.9); } /* ダーク背景 */
+            .zoom-btn { color: var(--text-color); }
+            .keyword-chip { background-color: var(--primary-dark); color: var(--bg-color); }
+            .btn-danger { background-color: var(--danger-color); }
+            .btn-danger:hover { background-color: #dc2626; } /* ダークモード用ホバー */
+            .help-screen { background-color: rgba(17, 24, 39, 0.85); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>スマホ対応マインドマップ生成アプリ</h1>
+    </header>
+
+    <div class="app-container">
+        <div class="input-container">
+            <div class="input-group">
+                <div class="textarea-container">
+                    <textarea id="input-text" placeholder="ここにテキストを入力または貼り付けてください..."></textarea>
+                    <div class="textarea-toolbar">
+                        <span id="char-count" class="char-count">0文字</span>
+                    </div>
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-zone-message">テキストファイルをここにドロップ</div>
+                    </div>
+                </div>
+                 <!-- Analysis results will be inserted here by JS -->
+                 <div id="analysis-results-container"></div>
+                <div class="btn-container">
+                    <button id="generate-btn" class="btn-primary">マインドマップ生成</button>
+                    <button id="analyze-btn" class="btn-accent">テキスト分析</button>
+                    <button id="clear-btn" class="btn-danger">クリア</button>
+                     <!-- Help button moved to controls -->
+                </div>
+            </div>
+        </div>
+
+        <div class="mindmap-view">
+            <div class="controls-container">
+                <div class="control-group">
+                    <label for="layout-type">レイアウト:</label>
+                    <select id="layout-type">
+                        <option value="radial">放射状</option>
+                        <option value="tree">ツリー状</option>
+                        <option value="horizontal" selected>水平</option> <!-- Default to horizontal -->
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="depth-level">階層:</label>
+                    <select id="depth-level">
+                        <option value="1">1階層</option>
+                        <option value="2" selected>2階層</option>
+                        <option value="3">3階層</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="download-btn" class="btn-outline">画像保存</button>
+                    <button id="help-btn" class="btn-outline">使い方</button>
+                </div>
+            </div>
+
+            <div id="mindmap-container" class="mindmap-container">
+                <!-- Mind map will be displayed here -->
+                 <div id="mindmap-content-wrapper" style="position: relative; width: 100%; height: 100%;">
+                     <!-- The actual mindmap content div will be created by JS -->
+                 </div>
+            </div>
+
+            <div class="zoom-controls">
+                <button id="zoom-in" class="zoom-btn">+</button>
+                <button id="zoom-out" class="zoom-btn">-</button>
+                <button id="zoom-reset" class="zoom-btn">↺</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading" class="loading" style="display: none;">
+        <div class="spinner"></div>
+        <span class="loading-text">処理中...</span>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+    <div id="feedback" class="feedback"></div>
+
+    <div id="help-screen" class="help-screen">
+        <div class="help-content">
+            <h2>マインドマップ生成アプリの使い方</h2>
+            <div class="help-section">
+                <h3>基本操作</h3>
+                <p>1. テキストエリアにテキストを入力または貼り付けます (ファイルドロップも可)。</p>
+                <p>2. 「マインドマップ生成」ボタンをクリックして視覚化します。</p>
+                <p>3. ノードにカーソルを合わせると全文表示、クリックするとテキストをコピーします。</p>
+                <p>4. 背景をドラッグしてマインドマップを移動できます。</p>
+                <p>5. 右下のボタンで拡大・縮小・リセットができます。</p>
+            </div>
+            <div class="help-section">
+                <h3>テキスト分析機能</h3>
+                <p>「テキスト分析」ボタンで、文の数、頻出キーワードなどを表示します。</p>
+            </div>
+            <div class="help-section">
+                <h3>カスタマイズ</h3>
+                <p>上部の「レイアウト」や「階層」で見た目を調整できます。</p>
+                <p>「画像保存」ボタンで表示中のマインドマップをPNG画像として保存できます。</p>
+            </div>
+            <div class="help-section examples-section">
+                <h3>サンプルテキストで試す</h3>
+                <button id="example-1" class="btn-outline">マインドマップの基本</button>
+                <button id="example-2" class="btn-outline">プロジェクト管理</button>
+                <button id="example-3" class="btn-outline">健康管理のコツ</button>
+            </div>
+            <button id="help-close" class="help-close btn-primary">閉じる</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM要素の取得
+            const inputText = document.getElementById('input-text');
+            const charCount = document.getElementById('char-count');
+            const generateBtn = document.getElementById('generate-btn');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const downloadBtn = document.getElementById('download-btn');
+            const helpBtn = document.getElementById('help-btn');
+            const layoutType = document.getElementById('layout-type');
+            const depthLevel = document.getElementById('depth-level');
+            const mindmapContainer = document.getElementById('mindmap-container');
+            const mindmapContentWrapper = document.getElementById('mindmap-content-wrapper'); // Wrapper for content
+            const loading = document.getElementById('loading');
+            const tooltip = document.getElementById('tooltip');
+            const feedback = document.getElementById('feedback');
+            const helpScreen = document.getElementById('help-screen');
+            const helpClose = document.getElementById('help-close');
+            const zoomIn = document.getElementById('zoom-in');
+            const zoomOut = document.getElementById('zoom-out');
+            const zoomReset = document.getElementById('zoom-reset');
+            const dropZone = document.getElementById('drop-zone');
+            const analysisResultsContainer = document.getElementById('analysis-results-container');
+
+            // --- ドラッグアンドドロップ機能 ---
+            inputText.addEventListener('dragenter', handleDragEnter);
+            document.addEventListener('dragover', handleDragOver);
+            document.addEventListener('dragleave', handleDragLeave);
+            dropZone.addEventListener('drop', handleDrop);
+            dropZone.addEventListener('dragleave', handleDropZoneLeave); // dropZoneからのleaveも監視
+
+            function handleDragEnter(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('active');
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault(); // dropイベントを発火させるために必要
+                e.stopPropagation();
+            }
+
+            function handleDragLeave(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                 // マウスがtextareaの外に出た場合のみ非表示にする
+                 const relatedTarget = e.relatedTarget;
+                 if (!relatedTarget || !e.currentTarget.contains(relatedTarget)) {
+                    if (!inputText.contains(relatedTarget) && !dropZone.contains(relatedTarget)) {
+                       dropZone.classList.remove('active');
+                    }
+                 }
+            }
+
+            function handleDropZoneLeave(e){
+                 e.preventDefault();
+                 e.stopPropagation();
+                 // dropZone自体から離れたときも非表示
+                 if (!e.relatedTarget || !dropZone.contains(e.relatedTarget)) {
+                     dropZone.classList.remove('active');
+                 }
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('active');
+
+                const files = e.dataTransfer.files;
+                const items = e.dataTransfer.items;
+
+                if (files && files.length > 0) {
+                    // ファイルがドロップされた場合 (主にテキストファイル)
+                     if (files[0].type.match('text.*') || files[0].name.endsWith('.txt') || files[0].name.endsWith('.md')) {
+                         readFile(files[0]);
+                     } else {
+                         showFeedback('テキストファイル (.txt, .md) またはプレーンテキストをドロップしてください', 'error');
+                     }
+                } else if (items && items.length > 0 && items[0].kind === 'string') {
+                     // テキストデータがドロップされた場合
+                     items[0].getAsString(function(text) {
+                         inputText.value = text;
+                         updateCharCount();
+                         showFeedback('テキストを貼り付けました', 'success');
+                     });
+                } else {
+                     showFeedback('テキストファイルまたはテキストデータをドロップしてください', 'error');
+                }
+            }
+
+            // テキストファイルの読み込み
+            function readFile(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    inputText.value = e.target.result;
+                    updateCharCount();
+                    showFeedback(`ファイル "${file.name}" を読み込みました`, 'success');
+                };
+                reader.onerror = function() {
+                    showFeedback(`ファイル "${file.name}" の読み込みに失敗しました`, 'error');
+                };
+                reader.readAsText(file);
+            }
+
+            // --- サンプルテキスト ---
+            const examples = {
+                'example-1': 'マインドマップとは視覚的な情報整理ツールです。中心となる概念から関連する情報が枝分かれし、情報を階層的に整理します。\n主な特徴は、視覚的で分かりやすいこと、情報の関連性を把握しやすいことです。\n利用シーンとしては、学習、メモ取り、ブレインストーミング、プレゼンテーション準備、プロジェクト計画などがあります。\n作成方法は、中心に主要テーマを置き、そこから枝を伸ばして関連トピックを配置します。色分けやアイコンを使うと情報が区別しやすくなります。\nデジタルツールを使えば簡単に編集や共有ができます。\n効果的な使い方としては、キーワードを使う、階層構造を意識する、視覚的要素を取り入れる、定期的に見直すなどがあります。',
+                'example-2': 'プロジェクト管理は計画、実行、監視、完了の4つのフェーズで構成されています。\n計画フェーズではスコープ、スケジュール、予算、リソースの定義を行います。\n実行フェーズではタスクの割り当て、進捗管理、コミュニケーションが重要です。\n監視フェーズでは進捗状況の確認、問題の特定と解決、必要に応じた計画の調整を行います。\n完了フェーズでは成果物の評価、教訓の文書化、リソースの解放を行います。\nプロジェクト管理手法には、ウォーターフォール、アジャイル、スクラム、カンバン、リーンなどがあります。\n効果的なプロジェクト管理のためには、明確な目標設定、定期的なコミュニケーション、リスク管理、変更管理プロセスが必要です。\nプロジェクト管理ツールとしては、Jira、Trello、Asanaなどが広く使われています。',
+                'example-3': '健康管理の重要な要素は、バランスの良い食事、定期的な運動、十分な睡眠、ストレス管理、定期健康診断です。\nバランスの良い食事には、たんぱく質、炭水化物、脂質、ビタミン、ミネラルをバランスよく摂取することが重要です。特に野菜や果物、全粒穀物、良質なたんぱく質源を積極的に取り入れましょう。\n定期的な運動には、有酸素運動（ウォーキング、ジョギング、水泳など）と筋力トレーニングを組み合わせるのが効果的です。週に少なくとも150分の中強度の運動が推奨されています。\n十分な睡眠は、成人で7-8時間が理想的です。睡眠の質を高めるために、就寝時間を一定にする、ブルーライトを避ける、寝る前にリラックスする習慣をつけましょう。\nストレス管理には、瞑想、深呼吸、ヨガ、趣味の時間の確保が有効です。\n定期健康診断は病気の早期発見と予防に役立ちます。'
+            };
+
+            document.getElementById('example-1').addEventListener('click', () => setExampleText('example-1'));
+            document.getElementById('example-2').addEventListener('click', () => setExampleText('example-2'));
+            document.getElementById('example-3').addEventListener('click', () => setExampleText('example-3'));
+
+            function setExampleText(key) {
+                inputText.value = examples[key];
+                updateCharCount();
+                helpScreen.classList.remove('show'); // ヘルプを閉じる
+                // サンプルがセットされたら分析結果もクリア
+                clearAnalysisResults();
+            }
+
+            // --- 文字数カウント機能 ---
+            function updateCharCount() {
+                const count = inputText.value.length;
+                charCount.textContent = `${count}文字`;
+            }
+            inputText.addEventListener('input', updateCharCount);
+
+            // --- ヘルプ画面の表示・非表示 ---
+            helpBtn.addEventListener('click', function() {
+                helpScreen.classList.add('show');
+            });
+            helpClose.addEventListener('click', function() {
+                helpScreen.classList.remove('show');
+            });
+            // 背景クリックでも閉じる
+             helpScreen.addEventListener('click', function(e) {
+                 if (e.target === helpScreen) {
+                     helpScreen.classList.remove('show');
+                 }
+             });
+
+
+            // --- ズーム機能 ---
+            let scale = 1;
+            const scaleStep = 0.1;
+            const maxScale = 2;
+            const minScale = 0.5;
+
+            zoomIn.addEventListener('click', function() {
+                scale = Math.min(maxScale, scale + scaleStep);
+                applyTransform();
+            });
+            zoomOut.addEventListener('click', function() {
+                scale = Math.max(minScale, scale - scaleStep);
+                applyTransform();
+            });
+            zoomReset.addEventListener('click', function() {
+                scale = 1;
+                offsetX = 0;
+                offsetY = 0;
+                applyTransform();
+            });
+
+             // --- マウスホイールでのズーム ---
+             mindmapContainer.addEventListener('wheel', function(e) {
+                 e.preventDefault(); // ページのスクロールを防止
+                 const delta = Math.sign(e.deltaY); // ホイールの回転方向を取得
+
+                 // マウスカーソル位置を中心にズームするための計算
+                 const rect = mindmapContainer.getBoundingClientRect();
+                 const mouseX = e.clientX - rect.left; // コンテナ内のマウスX座標
+                 const mouseY = e.clientY - rect.top; // コンテナ内のマウスY座標
+
+                 // 現在のスケールでのマウス位置に対応するコンテンツ上の座標
+                 const pointX = (mouseX - offsetX) / scale;
+                 const pointY = (mouseY - offsetY) / scale;
+
+                 if (delta < 0) { // 上回転（ズームイン）
+                     scale = Math.min(maxScale, scale + scaleStep);
+                 } else { // 下回転（ズームアウト）
+                     scale = Math.max(minScale, scale - scaleStep);
+                 }
+
+                 // 新しいスケールで、マウス位置が同じコンテンツ座標を指すようにオフセットを調整
+                 offsetX = mouseX - pointX * scale;
+                 offsetY = mouseY - pointY * scale;
+
+                 applyTransform();
+             }, { passive: false });
+
+
+            // --- パン機能（ドラッグで移動） ---
+            let isDragging = false;
+            let startX, startY;
+            let offsetX = 0, offsetY = 0;
+            let lastOffsetX = 0, lastOffsetY = 0;
+
+            mindmapContainer.addEventListener('mousedown', startDrag);
+            mindmapContainer.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchend', endDrag);
+
+            function startDrag(e) {
+                if (e.target.classList.contains('node') || e.target.closest('.node')) return; // ノード上はドラッグしない
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                lastOffsetX = offsetX;
+                lastOffsetY = offsetY;
+                mindmapContainer.style.cursor = 'grabbing';
+            }
+
+            function handleTouchStart(e) {
+                if (e.target.classList.contains('node') || e.target.closest('.node')) return;
+                e.preventDefault();
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    startX = e.touches[0].clientX;
+                    startY = e.touches[0].clientY;
+                    lastOffsetX = offsetX;
+                    lastOffsetY = offsetY;
+                }
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+                offsetX = lastOffsetX + (e.clientX - startX);
+                offsetY = lastOffsetY + (e.clientY - startY);
+                applyTransform();
+            }
+
+            function handleTouchMove(e) {
+                if (!isDragging || e.touches.length !== 1) return; // 1本指ドラッグのみ
+                e.preventDefault();
+                offsetX = lastOffsetX + (e.touches[0].clientX - startX);
+                offsetY = lastOffsetY + (e.touches[0].clientY - startY);
+                applyTransform();
+            }
+
+            function endDrag() {
+                if (isDragging) {
+                    isDragging = false;
+                    mindmapContainer.style.cursor = 'grab'; // 通常カーソルに戻す
+                }
+            }
+
+            function applyTransform() {
+                const mindmapContent = document.getElementById('mindmap-content');
+                if (mindmapContent) {
+                    mindmapContent.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+                }
+            }
+             // 初期カーソル設定
+             mindmapContainer.style.cursor = 'grab';
+
+            // --- フィードバックメッセージ表示 ---
+            function showFeedback(message, type = 'info') { // defaultをinfoに変更
+                feedback.textContent = message;
+                // 既存のクラスを削除してから新しいクラスを追加
+                feedback.className = 'feedback';
+                feedback.classList.add('show');
+
+                if (type === 'success') {
+                    feedback.classList.add('success');
+                } else if (type === 'error') {
+                    feedback.classList.add('error');
+                }
+                // infoの場合はデフォルトのスタイル（クラスなし）
+
+                // アニメーションが終わってから非表示にするタイマー
+                setTimeout(() => {
+                    feedback.classList.remove('show');
+                     // 非表示アニメーションが終わったらクラスを完全にリセット
+                     setTimeout(() => {
+                          if (!feedback.classList.contains('show')) { // まだ表示中でなければ
+                              feedback.className = 'feedback';
+                          }
+                     }, 300); // transition時間
+                }, 3000); // 3秒表示
+            }
+
+            // --- ノードの相互作用を設定 ---
+            function setupNodeInteraction() {
+                const nodes = document.querySelectorAll('.node');
+
+                nodes.forEach(node => {
+                    // ホバー時にツールチップを表示
+                    node.addEventListener('mouseenter', function(e) {
+                        if (node.dataset.fullText && node.dataset.fullText !== node.textContent) { // 短縮されている場合のみ
+                            tooltip.textContent = node.dataset.fullText;
+                            tooltip.style.opacity = '1';
+
+                            // ツールチップの位置を設定 (ノードの上中央)
+                            const nodeRect = node.getBoundingClientRect();
+                            const containerRect = mindmapContainer.getBoundingClientRect();
+
+                            tooltip.style.left = `${nodeRect.left - containerRect.left + nodeRect.width / 2}px`;
+                            tooltip.style.top = `${nodeRect.top - containerRect.top}px`; // ノードの上端に合わせる
+                            tooltip.style.transform = 'translate(-50%, calc(-100% - 5px))'; // 少し上にずらす
+                        }
+                    });
+
+                    node.addEventListener('mouseleave', function() {
+                        tooltip.style.opacity = '0';
+                        tooltip.style.left = '-9999px'; // 画面外に移動
+                    });
+
+                    // クリック時のアクション (テキストをクリップボードにコピー)
+                    node.addEventListener('click', function(e) {
+                        e.stopPropagation(); // 親要素へのイベント伝播を停止
+                        if (node.dataset.fullText) {
+                            navigator.clipboard.writeText(node.dataset.fullText)
+                                .then(() => {
+                                    showFeedback(`"${node.dataset.fullText.substring(0, 20)}..." をクリップボードにコピーしました`, 'success');
+                                })
+                                .catch(err => {
+                                    console.error('コピーに失敗しました:', err);
+                                    showFeedback('クリップボードへのコピーに失敗しました', 'error');
+                                });
+                        }
+                    });
+                });
+            }
+
+            // --- マインドマップをクリア ---
+            clearBtn.addEventListener('click', clearMindmap);
+
+            function clearMindmap() {
+                // Get current content div if exists
+                const mindmapContent = document.getElementById('mindmap-content');
+                if (mindmapContent) {
+                    mindmapContentWrapper.removeChild(mindmapContent); // Remove the content div
+                }
+                inputText.value = '';
+                updateCharCount();
+                clearAnalysisResults(); // 分析結果もクリア
+                showFeedback('クリアしました', 'info');
+                // Reset zoom and pan
+                scale = 1;
+                offsetX = 0;
+                offsetY = 0;
+                 // applyTransform(); // No content to transform, but reset internal state
+            }
+
+            function clearAnalysisResults() {
+                 const existingResults = document.querySelector('.analysis-results');
+                 if (existingResults) {
+                     analysisResultsContainer.removeChild(existingResults);
+                 }
+            }
+
+
+            // --- マインドマップを画像としてダウンロード ---
+             downloadBtn.addEventListener('click', downloadMindmap);
+
+             async function downloadMindmap() {
+                 const mindmapContent = document.getElementById('mindmap-content');
+                 if (!mindmapContent) {
+                     showFeedback('マインドマップが生成されていません', 'error');
+                     return;
+                 }
+
+                 loading.style.display = 'flex';
+                 loading.querySelector('.loading-text').textContent = '画像を生成中...';
+
+                 // 一時的にスケールとオフセットをリセットして全体が見えるように
+                 const currentTransform = mindmapContent.style.transform;
+                 const zoomControls = document.querySelector('.zoom-controls');
+                 const originalZoomDisplay = zoomControls.style.display;
+                 zoomControls.style.display = 'none'; // ズームコントロールを非表示
+
+                 // マインドマップ全体のバウンディングボックスを取得 (可視領域ではなくコンテンツ全体)
+                 const nodes = mindmapContent.querySelectorAll('.node');
+                 if(nodes.length === 0) {
+                     showFeedback('ノードがありません', 'error');
+                     loading.style.display = 'none';
+                     zoomControls.style.display = originalZoomDisplay;
+                     return;
+                 }
+
+                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                 nodes.forEach(node => {
+                     const x = parseFloat(node.style.left || '0');
+                     const y = parseFloat(node.style.top || '0');
+                     const w = node.offsetWidth;
+                     const h = node.offsetHeight;
+                     minX = Math.min(minX, x);
+                     minY = Math.min(minY, y);
+                     maxX = Math.max(maxX, x + w);
+                     maxY = Math.max(maxY, y + h);
+                 });
+
+                 // コンテンツがはみ出している場合があるため、少し余裕を持たせる
+                 const padding = 30;
+                 const contentWidth = maxX - minX + padding * 2;
+                 const contentHeight = maxY - minY + padding * 2;
+
+                 // キャプチャ領域を計算
+                 const captureX = minX - padding;
+                 const captureY = minY - padding;
+
+                 // html2canvas用にコンテンツを一時的に左上に移動
+                 mindmapContent.style.transform = `translate(${-captureX}px, ${-captureY}px) scale(1)`;
+
+                 // 少し待機してレンダリングを完了させる
+                 await new Promise(resolve => setTimeout(resolve, 300));
+
+                 try {
+                     const canvas = await html2canvas(mindmapContent, {
+                         backgroundColor: getComputedStyle(mindmapContainer).getPropertyValue('background-color'), // 背景色を適用
+                         scale: window.devicePixelRatio * 1.5, // 高解像度化
+                         useCORS: true,
+                         scrollX: 0, // html2canvas内部のスクロールは0
+                         scrollY: 0,
+                         width: contentWidth, // 計算した幅
+                         height: contentHeight, // 計算した高さ
+                         x: 0, // コンテンツは左上に移動済みなので0
+                         y: 0,
+                         logging: false,
+                         removeContainer: false
+                     });
+
+                     // Canvas をデータURLに変換
+                     const imgData = canvas.toDataURL('image/png');
+
+                     // ダウンロードリンクを作成
+                     const link = document.createElement('a');
+                     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                     link.download = `mindmap-${timestamp}.png`;
+                     link.href = imgData;
+                     document.body.appendChild(link);
+                     link.click();
+                     document.body.removeChild(link);
+
+                     showFeedback('マインドマップを画像として保存しました', 'success');
+
+                 } catch (err) {
+                     console.error('画像の生成またはダウンロードに失敗しました:', err);
+                     showFeedback('画像の生成に失敗しました。ブラウザコンソールで詳細を確認してください。', 'error');
+                 } finally {
+                      // スケールと表示を元に戻す
+                      mindmapContent.style.transform = currentTransform;
+                      zoomControls.style.display = originalZoomDisplay;
+                      loading.style.display = 'none';
+                 }
+             }
+
+
+            // --- レイアウト・階層変更時のイベント ---
+            layoutType.addEventListener('change', regenerateMindmapIfExist);
+            depthLevel.addEventListener('change', regenerateMindmapIfExist);
+
+            function regenerateMindmapIfExist() {
+                 if (document.getElementById('mindmap-content')) {
+                    generateMindmap(); // 設定が変わったら再生成
+                 }
+            }
+
+
+            // --- マインドマップ生成関数 ---
+            generateBtn.addEventListener('click', generateMindmap);
+
+            function generateMindmap() {
+                const text = inputText.value.trim();
+                if (!text) {
+                    showFeedback('テキストを入力してください', 'error');
+                    return;
+                }
+
+                loading.style.display = 'flex';
+                loading.querySelector('.loading-text').textContent = 'マインドマップ生成中...';
+                clearAnalysisResults(); // 生成開始時に分析結果をクリア
+
+                // 非同期処理（重い処理をUIスレッドから分離）
+                setTimeout(() => {
+                    try {
+                        // テキストを解析してデータ構造を生成
+                        const data = analyzeText(text);
+                        // データ構造をもとにマインドマップを描画
+                        createMindmapUI(data);
+                        showFeedback('マインドマップを生成しました', 'success');
+                    } catch (error) {
+                        console.error('マインドマップ生成エラー:', error);
+                        showFeedback(`エラー: ${error.message}`, 'error');
+                    } finally {
+                        loading.style.display = 'none';
+                    }
+                }, 50); // 少し遅延させてローディング表示を確実にする
+            }
+
+            // --- テキスト分析ボタン ---
+             analyzeBtn.addEventListener('click', function() {
+                 const text = inputText.value.trim();
+                 if (!text) {
+                     showFeedback('分析するテキストを入力してください', 'error');
+                     return;
+                 }
+
+                 loading.style.display = 'flex';
+                 loading.querySelector('.loading-text').textContent = 'テキスト分析中...';
+                 clearMindmapIfExist(); // 分析開始時にマインドマップをクリア
+
+                 setTimeout(() => {
+                     try {
+                         const analysisResult = performDetailedAnalysis(text);
+                         displayAnalysisResults(analysisResult);
+                         showFeedback('テキスト分析が完了しました', 'success');
+                     } catch (error) {
+                         console.error('テキスト分析エラー:', error);
+                         showFeedback(`分析エラー: ${error.message}`, 'error');
+                     } finally {
+                         loading.style.display = 'none';
+                     }
+                 }, 50);
+             });
+
+             function clearMindmapIfExist() {
+                 const mindmapContent = document.getElementById('mindmap-content');
+                 if (mindmapContent) {
+                     mindmapContentWrapper.removeChild(mindmapContent);
+                     // Reset zoom/pan state if needed
+                      scale = 1;
+                      offsetX = 0;
+                      offsetY = 0;
+                 }
+             }
+
+
+            // --- 詳細なテキスト分析を行う関数 ---
+            function performDetailedAnalysis(text) {
+                // 文に分割 (句読点、改行で区切る)
+                const sentences = text.split(/[\n。.!?！？]+/).filter(s => s.trim().length > 1);
+
+                // 単語に分割 (より丁寧な前処理)
+                const words = text
+                    .toLowerCase() // 小文字化
+                    .replace(/[.,!?;:()[\]{}'"“”‘’「」『』]/g, ' ') // 句読点除去
+                    .replace(/\s+/g, ' ') // 連続空白を1つに
+                    .split(' ')
+                    .filter(word => word.length > 1); // 短すぎる単語を除外
+
+                // 単語頻度計算
+                const wordFrequency = words.reduce((freq, word) => {
+                    freq[word] = (freq[word] || 0) + 1;
+                    return freq;
+                }, {});
+
+                // 頻出単語ソート (上位10件)
+                const sortedWords = Object.entries(wordFrequency)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 10)
+                    .map(entry => ({ word: entry[0], count: entry[1] }));
+
+                // 文の長さ分析
+                const sentenceLengths = sentences.map(s => s.length);
+                const totalLength = sentenceLengths.reduce((sum, len) => sum + len, 0);
+                const avgSentenceLength = sentences.length > 0 ? totalLength / sentences.length : 0;
+
+                // カテゴリ推定 (単純なキーワードベース)
+                const keywordCategories = {
+                    '技術': ['プログラム', 'コード', '開発', 'アプリ', 'ソフト', 'データ', 'ai', '人工知能', 'システム'],
+                    'ビジネス': ['プロジェクト', '管理', '戦略', '市場', '計画', '効率', 'コスト', '会議', '組織'],
+                    '学習': ['学習', '教育', '研究', '学校', '知識', '勉強', '方法'],
+                    '健康': ['健康', '運動', '睡眠', '食事', '栄養', 'ストレス', '医療'],
+                    '生活': ['趣味', '旅行', '料理', '家族', 'イベント', '日常']
+                };
+                const estimatedCategories = new Set(); // 重複を避けるためSetを使用
+                const lowerText = text.toLowerCase();
+                for (const [category, keywords] of Object.entries(keywordCategories)) {
+                    if (keywords.some(keyword => lowerText.includes(keyword))) {
+                        estimatedCategories.add(category);
+                    }
+                }
+
+                // 主要テーマ候補 (頻出単語上位3つ)
+                const mainThemes = sortedWords.slice(0, 3).map(item => item.word);
+
+                return {
+                    sentenceCount: sentences.length,
+                    wordCount: words.length,
+                    avgSentenceLength: Math.round(avgSentenceLength),
+                    topKeywords: sortedWords,
+                    estimatedCategories: estimatedCategories.size > 0 ? Array.from(estimatedCategories) : ['一般'],
+                    possibleMainThemes: mainThemes,
+                };
+            }
+
+            // --- 分析結果を表示する関数 ---
+            function displayAnalysisResults(results) {
+                clearAnalysisResults(); // 既存の結果を削除
+
+                const resultsDiv = document.createElement('div');
+                resultsDiv.className = 'analysis-results'; // スタイル適用のためクラス付与
+
+                resultsDiv.innerHTML = `
+                    <h3>テキスト分析結果</h3>
+                    <p>総文字数: ${inputText.value.length} / 文の数: ${results.sentenceCount} / 単語数: ${results.wordCount}</p>
+                    <p>平均文長: 約${results.avgSentenceLength}文字</p>
+                    <p>推定カテゴリ: ${results.estimatedCategories.join(', ')}</p>
+                    <p>主要テーマ候補: ${results.possibleMainThemes.join(', ')}</p>
+                    ${results.topKeywords.length > 0 ? `
+                        <div class="keyword-list">
+                            <strong>頻出キーワード:</strong>
+                            ${results.topKeywords.map(item =>
+                                `<span class="keyword-chip">${item.word} (${item.count})</span>`
+                            ).join('')}
+                        </div>
+                    ` : '<p>頻出キーワードは見つかりませんでした。</p>'}
+                `;
+
+                 // analysisResultsContainerに結果を追加
+                analysisResultsContainer.appendChild(resultsDiv);
+            }
+
+
+             // --- テキスト解析関数（マインドマップデータ構造生成用） ---
+             function analyzeText(text) {
+                 const sentences = text.split(/[\n。.!?！？]+/).filter(s => s.trim().length > 1);
+                 if (sentences.length === 0) {
+                     throw new Error('有効な文章が見つかりません。');
+                 }
+
+                 // メインテーマ決定（最初の文を基本とし、短すぎる場合は次の文を試す）
+                 let mainThemeSentence = sentences[0];
+                 if (mainThemeSentence.length < 5 && sentences.length > 1) {
+                     mainThemeSentence = sentences[1];
+                 }
+                 const mainTheme = mainThemeSentence.trim();
+                 const mainThemeDisplay = mainTheme.length > 40 ? mainTheme.substring(0, 37) + '...' : mainTheme;
+
+                 // 残りの文を重要度でソート（ここでは単純に文の長さを使用）
+                 const remainingSentences = sentences.slice(1).sort((a, b) => b.length - a.length);
+
+                 const maxDepth = parseInt(depthLevel.value);
+                 const primarySubtopics = [];
+                 const maxPrimaryNodes = 8; // 第1階層の最大ノード数
+
+                 // 第1階層ノード生成
+                 remainingSentences.slice(0, maxPrimaryNodes).forEach((sentence, index) => {
+                     const fullText = sentence.trim();
+                     const displayText = fullText.length > 50 ? fullText.substring(0, 47) + '...' : fullText;
+                     const topic = {
+                         id: `topic-${index}-${Date.now()}`, // ユニークID
+                         text: displayText,
+                         fullText: fullText,
+                         children: []
+                     };
+
+                     // 第2階層ノード生成 (maxDepth >= 2)
+                     if (maxDepth >= 2) {
+                         // 文中の単語を抽出 (より簡単な方法: 最初の数単語)
+                         const wordsInSentence = fullText.split(/\s+/).filter(w => w.length > 1);
+                         const maxSecondaryNodes = 4; // 第2階層の最大ノード数
+
+                         wordsInSentence.slice(0, maxSecondaryNodes).forEach((word, subIndex) => {
+                             const subTopic = {
+                                 id: `sub-${index}-${subIndex}-${Date.now()}`,
+                                 text: word.length > 15 ? word.substring(0, 12) + '...' : word,
+                                 fullText: word,
+                                 children: []
+                             };
+
+                             // 第3階層ノード生成 (maxDepth >= 3)
+                             if (maxDepth >= 3) {
+                                  // さらに単語を分割 or 関連語を探す (ここでは単純に関連しそうな短い単語)
+                                 const relatedWords = wordsInSentence.slice(subIndex + 1, subIndex + 1 + 2); // 次の2単語
+                                 const maxTertiaryNodes = 2;
+
+                                 relatedWords.slice(0, maxTertiaryNodes).forEach((tertiaryWord, tertIndex) => {
+                                     if (tertiaryWord.length > 1) { // 短すぎる単語は除外
+                                         subTopic.children.push({
+                                             id: `tert-${index}-${subIndex}-${tertIndex}-${Date.now()}`,
+                                             text: tertiaryWord.length > 12 ? tertiaryWord.substring(0, 9) + '...' : tertiaryWord,
+                                             fullText: tertiaryWord
+                                             // 3階層目はchildrenを持たない
+                                         });
+                                     }
+                                 });
+                             }
+                             topic.children.push(subTopic);
+                         });
+                     }
+                     primarySubtopics.push(topic);
+                 });
+
+                 return {
+                     id: `main-${Date.now()}`,
+                     text: mainThemeDisplay,
+                     fullText: mainTheme,
+                     children: primarySubtopics
+                 };
+             }
+
+
+             // --- マインドマップUI作成関数 ---
+             function createMindmapUI(data) {
+                 clearMindmapIfExist(); // Start with a clean slate
+
+                 const mindmapContent = document.createElement('div');
+                 mindmapContent.id = 'mindmap-content';
+                 mindmapContent.style.position = 'absolute';
+                 // Set large initial size to allow content to spread out
+                 mindmapContent.style.width = '3000px';
+                 mindmapContent.style.height = '3000px';
+                 // Center the large div initially (will be adjusted by pan/zoom)
+                 mindmapContent.style.left = `calc(50% - 1500px)`;
+                 mindmapContent.style.top = `calc(50% - 1500px)`;
+                 mindmapContent.style.transformOrigin = 'top left'; // Set origin for scaling/translation
+                 mindmapContentWrapper.appendChild(mindmapContent);
+
+
+                 // --- ノード作成関数 (UI Element) ---
+                 function createNodeElement(nodeData, x, y, type = 'sub', colorClass = '') {
+                     const nodeElement = document.createElement('div');
+                     nodeElement.className = `node ${type} ${colorClass}`;
+                     nodeElement.id = nodeData.id;
+                     nodeElement.textContent = nodeData.text;
+                     nodeElement.dataset.fullText = nodeData.fullText || nodeData.text; // Store full text
+                     nodeElement.dataset.x = x; // Store logical position
+                     nodeElement.dataset.y = y;
+                     nodeElement.style.left = `${x}px`; // Initial position (center)
+                     nodeElement.style.top = `${y}px`;
+
+                     // Adjust position based on element size after rendering
+                     requestAnimationFrame(() => {
+                         const width = nodeElement.offsetWidth;
+                         const height = nodeElement.offsetHeight;
+                         nodeElement.style.left = `${x - width / 2}px`;
+                         nodeElement.style.top = `${y - height / 2}px`;
+                         nodeElement.dataset.finalX = x - width / 2; // Store final top-left coords
+                         nodeElement.dataset.finalY = y - height / 2;
+                     });
+
+                     // Add expanded class if it has children
+                     if (nodeData.children && nodeData.children.length > 0) {
+                         nodeElement.classList.add('expanded');
+                     }
+
+                     return nodeElement;
+                 }
+
+                  // --- ノード間接続線作成関数 (UI Element) ---
+                 function connectNodesUI(node1Elem, node2Elem, container) {
+                     // Wait for final positions to be calculated
+                     requestAnimationFrame(() => {
+                         if(!document.body.contains(node1Elem) || !document.body.contains(node2Elem)) return; // ノードが存在しない場合は処理中断
+
+                          // Recalculate based on final position and size
+                         const rect1 = node1Elem.getBoundingClientRect();
+                         const rect2 = node2Elem.getBoundingClientRect();
+                         const parentRect = container.getBoundingClientRect(); // Get container's rect relative to viewport
+
+                         // Calculate center points relative to the container's top-left
+                         const x1 = rect1.left - parentRect.left + rect1.width / 2;
+                         const y1 = rect1.top - parentRect.top + rect1.height / 2;
+                         const x2 = rect2.left - parentRect.left + rect2.width / 2;
+                         const y2 = rect2.top - parentRect.top + rect2.height / 2;
+
+
+                         const dx = x2 - x1;
+                         const dy = y2 - y1;
+                         const distance = Math.sqrt(dx * dx + dy * dy);
+                         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                         // Adjust line start/end points to touch node edges (approximate)
+                         const nodeRadius1 = Math.min(rect1.width, rect1.height) / 2;
+                         const nodeRadius2 = Math.min(rect2.width, rect2.height) / 2;
+
+                         const adjustedX1 = x1 + Math.cos(angle * Math.PI / 180) * (nodeRadius1 * 0.8); // Slightly inside edge
+                         const adjustedY1 = y1 + Math.sin(angle * Math.PI / 180) * (nodeRadius1 * 0.8);
+                         const adjustedDistance = distance - (nodeRadius1 * 0.8) - (nodeRadius2 * 0.8); // Adjust length
+
+                         if (adjustedDistance > 5) { // Only draw if nodes aren't overlapping (add threshold)
+                             const connection = document.createElement('div');
+                             connection.className = 'connection';
+                             connection.style.width = `${adjustedDistance}px`; // Use adjusted distance
+                             connection.style.left = `${adjustedX1}px`; // Use adjusted start point
+                             connection.style.top = `${adjustedY1}px`;
+                             connection.style.transform = `rotate(${angle}deg)`;
+
+                             // Inherit color from child node if possible
+                              const childColorClass = Array.from(node2Elem.classList).find(cls => cls.startsWith('color-'));
+                              if (childColorClass) {
+                                   const colorVar = getComputedStyle(node2Elem).getPropertyValue('border-top-color'); // Get the actual border color
+                                   connection.style.backgroundColor = colorVar || '#aaa'; // Fallback color
+                              }
+
+                             container.insertBefore(connection, container.firstChild); // Insert lines behind nodes
+                         }
+                     });
+                 }
+
+
+                 // --- Layout Functions (Calculate positions and create elements) ---
+
+                 const containerWidth = 3000; // Use the large container size
+                 const containerHeight = 3000;
+                 const centerX = containerWidth / 2;
+                 const centerY = containerHeight / 2;
+
+                 // Create Main Node Element
+                 const mainNodeElement = createNodeElement(data, centerX, centerY, 'main', 'color-1');
+                 mindmapContent.appendChild(mainNodeElement);
+
+
+                 // --- Radial Layout ---
+                 function createRadialLayout(parentNodeData, parentNodeElem) {
+                     if (!parentNodeData.children || parentNodeData.children.length === 0) return;
+
+                     const children = parentNodeData.children;
+                     const angleStep = children.length > 1 ? (2 * Math.PI) / children.length : 0;
+                     const baseDistance = parentNodeElem.classList.contains('main') ? Math.min(centerX, centerY) * 0.18 : 120; // Dynamic distance
+                     const parentX = parseFloat(parentNodeElem.dataset.x);
+                     const parentY = parseFloat(parentNodeElem.dataset.y);
+
+                     children.forEach((childData, index) => {
+                         const angle = angleStep * index - (Math.PI / 2); // Start from top
+                         const distance = baseDistance + (childData.text.length * 1.5); // Adjust distance by text length slightly
+                         const x = parentX + Math.cos(angle) * distance;
+                         const y = parentY + Math.sin(angle) * distance;
+                         const colorClass = `color-${(index % 8) + 1}`; // Cycle through 8 colors
+
+                         const childNodeElem = createNodeElement(childData, x, y, 'sub', colorClass);
+                         mindmapContent.appendChild(childNodeElem);
+                         connectNodesUI(parentNodeElem, childNodeElem, mindmapContent);
+
+                         // Recursively call for grandchildren
+                         createRadialLayout(childData, childNodeElem);
+                     });
+                 }
+
+                 // --- Tree Layout ---
+                 function createTreeLayout(parentNodeData, parentNodeElem, level = 0, siblingIndex = 0, totalSiblings = 1) {
+                     if (!parentNodeData.children || parentNodeData.children.length === 0) return;
+
+                     const children = parentNodeData.children;
+                     const verticalSpacing = level === 0 ? 100 : 70; // Spacing based on level
+                     const horizontalOffset = level === 0 ? 250 : 180;
+                     const parentX = parseFloat(parentNodeElem.dataset.x);
+                     const parentY = parseFloat(parentNodeElem.dataset.y);
+
+                     const totalHeight = (children.length - 1) * verticalSpacing;
+                     const startYOffset = parentY - totalHeight / 2;
+
+                     children.forEach((childData, index) => {
+                         const x = parentX + horizontalOffset;
+                         const y = startYOffset + index * verticalSpacing;
+                         const colorClass = parentNodeElem.classList.contains('main') ? `color-${(index % 8) + 1}` : Array.from(parentNodeElem.classList).find(cls => cls.startsWith('color-')) || 'color-1'; // Inherit color
+
+                         const childNodeElem = createNodeElement(childData, x, y, 'sub', colorClass);
+                         childNodeElem.style.fontSize = `${Math.max(11, 14 - level)}px`;
+                         mindmapContent.appendChild(childNodeElem);
+                         connectNodesUI(parentNodeElem, childNodeElem, mindmapContent);
+
+                         // Recursive call
+                         createTreeLayout(childData, childNodeElem, level + 1, index, children.length);
+                     });
+                 }
+
+
+                 // --- Horizontal Layout ---
+                  function createHorizontalLayout(parentNodeData, parentNodeElem, level = 0) {
+                      if (!parentNodeData.children || parentNodeData.children.length === 0) return;
+
+                      const children = parentNodeData.children;
+                      const parentX = parseFloat(parentNodeElem.dataset.x);
+                      const parentY = parseFloat(parentNodeElem.dataset.y);
+
+                      const verticalSpacing = level === 0 ? 100 : 70;
+                      const horizontalOffset = level === 0 ? 300 : 200;
+
+                      const leftChildren = children.slice(0, Math.ceil(children.length / 2));
+                      const rightChildren = children.slice(Math.ceil(children.length / 2));
+
+                      // Left side
+                      const leftTotalHeight = (leftChildren.length - 1) * verticalSpacing;
+                      const leftStartY = parentY - leftTotalHeight / 2;
+                      leftChildren.forEach((childData, index) => {
+                          const x = parentX - horizontalOffset;
+                          const y = leftStartY + index * verticalSpacing;
+                          const colorClass = `color-${(index % 8) + 1}`;
+
+                          const childNodeElem = createNodeElement(childData, x, y, 'sub', colorClass);
+                          childNodeElem.style.fontSize = `${Math.max(11, 14 - level)}px`;
+                          mindmapContent.appendChild(childNodeElem);
+                          connectNodesUI(parentNodeElem, childNodeElem, mindmapContent);
+                          createHorizontalSubLayout(childData, childNodeElem, level + 1, 'left'); // Recursive call for left side
+                      });
+
+                      // Right side
+                      const rightTotalHeight = (rightChildren.length - 1) * verticalSpacing;
+                      const rightStartY = parentY - rightTotalHeight / 2;
+                      rightChildren.forEach((childData, index) => {
+                          const x = parentX + horizontalOffset;
+                          const y = rightStartY + index * verticalSpacing;
+                          const colorClass = `color-${((index + leftChildren.length) % 8) + 1}`;
+
+                          const childNodeElem = createNodeElement(childData, x, y, 'sub', colorClass);
+                          childNodeElem.style.fontSize = `${Math.max(11, 14 - level)}px`;
+                          mindmapContent.appendChild(childNodeElem);
+                          connectNodesUI(parentNodeElem, childNodeElem, mindmapContent);
+                          createHorizontalSubLayout(childData, childNodeElem, level + 1, 'right'); // Recursive call for right side
+                      });
+                  }
+
+                 // --- Horizontal Sub-Layout (for levels > 0) ---
+                 function createHorizontalSubLayout(parentNodeData, parentNodeElem, level, side) {
+                      if (!parentNodeData.children || parentNodeData.children.length === 0) return;
+
+                      const children = parentNodeData.children;
+                      const parentX = parseFloat(parentNodeElem.dataset.x);
+                      const parentY = parseFloat(parentNodeElem.dataset.y);
+                      const verticalSpacing = 60; // Smaller spacing for sub-levels
+                      const horizontalOffset = 160;
+
+                      const totalHeight = (children.length - 1) * verticalSpacing;
+                      const startY = parentY - totalHeight / 2;
+
+                      children.forEach((childData, index) => {
+                          const x = side === 'left' ? parentX - horizontalOffset : parentX + horizontalOffset;
+                          const y = startY + index * verticalSpacing;
+                           // Inherit color from parent node
+                           const colorClass = Array.from(parentNodeElem.classList).find(cls => cls.startsWith('color-')) || 'color-1';
+
+                          const childNodeElem = createNodeElement(childData, x, y, 'sub', colorClass);
+                          childNodeElem.style.fontSize = `${Math.max(11, 14 - level)}px`; // Decrease font size with depth
+                          mindmapContent.appendChild(childNodeElem);
+                          connectNodesUI(parentNodeElem, childNodeElem, mindmapContent);
+
+                          // Recursive call
+                          createHorizontalSubLayout(childData, childNodeElem, level + 1, side);
+                      });
+                  }
+
+                 // --- Select Layout and Execute ---
+                 const selectedLayout = layoutType.value;
+                 if (selectedLayout === 'radial') {
+                     createRadialLayout(data, mainNodeElement);
+                 } else if (selectedLayout === 'tree') {
+                     createTreeLayout(data, mainNodeElement);
+                 } else { // horizontal is default
+                     createHorizontalLayout(data, mainNodeElement);
+                 }
+
+                 // --- Final Steps ---
+                 setupNodeInteraction(); // Add event listeners to nodes
+                 // Initial zoom/pan reset
+                 scale = 1;
+                 offsetX = 0;
+                 offsetY = 0;
+
+                 // Center the content initially after a short delay for rendering
+                 setTimeout(() => {
+                      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                      const nodes = mindmapContent.querySelectorAll('.node');
+                      if (nodes.length === 0) {
+                          applyTransform(); // Apply reset transform even if no nodes
+                          return;
+                      };
+
+                      nodes.forEach(node => {
+                         // Use style.left/top as they represent the calculated top-left corner
+                         const nodeX = parseFloat(node.style.left || '0');
+                         const nodeY = parseFloat(node.style.top || '0');
+                         const nodeW = node.offsetWidth;
+                         const nodeH = node.offsetHeight;
+                         minX = Math.min(minX, nodeX);
+                         minY = Math.min(minY, nodeY);
+                         maxX = Math.max(maxX, nodeX + nodeW);
+                         maxY = Math.max(maxY, nodeY + nodeH);
+                      });
+
+                     // Add padding to bounds
+                     const padding = 50;
+                     minX -= padding;
+                     minY -= padding;
+                     maxX += padding;
+                     maxY += padding;
+
+                      const contentWidth = maxX - minX;
+                      const contentHeight = maxY - minY;
+                      const containerViewWidth = mindmapContainer.clientWidth;
+                      const containerViewHeight = mindmapContainer.clientHeight;
+
+                      // Calculate scale to fit content (optional, could keep scale=1)
+                      const scaleX = contentWidth > 0 ? containerViewWidth / contentWidth : 1;
+                      const scaleY = contentHeight > 0 ? containerViewHeight / contentHeight : 1;
+                      scale = Math.min(1, scaleX, scaleY); // Fit within view, max scale 1
+
+                      // Calculate offset to center the content
+                      offsetX = (containerViewWidth - contentWidth * scale) / 2 - minX * scale;
+                      offsetY = (containerViewHeight - contentHeight * scale) / 2 - minY * scale;
+
+                      applyTransform(); // Apply the calculated centering transform
+                 }, 100); // Delay to allow DOM updates
+
+             }
+
+
+            // --- Initial setup ---
+            inputText.value = examples['example-1']; // Load default example
+            updateCharCount();
+            // Initial help screen for mobile
+            if (window.innerWidth < 768 && !localStorage.getItem('mindmapHelpSeen')) {
+                 setTimeout(() => {
+                     helpScreen.classList.add('show');
+                     localStorage.setItem('mindmapHelpSeen', 'true'); // Don't show again
+                 }, 1500);
+             }
+             // Set initial cursor for panning
+            mindmapContainer.style.cursor = 'grab';
+
+        }); // End DOMContentLoaded
+    </script>
+</body>
+</html>
