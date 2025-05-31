@@ -464,6 +464,15 @@
             .zoom-controls { bottom: 12px; right: 12px; }
             .zoom-btn { width: 36px; height: 36px; }
             .help-content { max-height: 85vh; }
+
+            .help-content .examples-section button.btn-outline {
+                padding: 6px 10px; /* More proportional padding for 12px font */
+            }
+
+            /* Reduce padding for buttons in controls bar on mobile */
+            .controls-container .control-group button.btn-outline {
+                padding: 6px 10px;
+            }
         }
 
         /* ダークモード */
@@ -917,6 +926,22 @@
                     // クリック時のアクション (テキストをクリップボードにコピー)
                     node.addEventListener('click', function(e) {
                         e.stopPropagation(); // 親要素へのイベント伝播を停止
+
+                        // --- BEGIN INLINED TOOLTIP DISPLAY LOGIC (from mouseenter) ---
+                        if (node.dataset.fullText && node.dataset.fullText !== node.textContent) {
+                            tooltip.textContent = node.dataset.fullText;
+
+                            const nodeRect = node.getBoundingClientRect();
+                            const containerRect = mindmapContainer.getBoundingClientRect();
+
+                            tooltip.style.left = `${nodeRect.left - containerRect.left + nodeRect.width / 2}px`;
+                            tooltip.style.top = `${nodeRect.top - containerRect.top}px`;
+                            tooltip.style.transform = 'translate(-50%, calc(-100% - 5px))`;
+                            tooltip.style.opacity = '1';
+                        }
+                        // --- END INLINED TOOLTIP DISPLAY LOGIC ---
+
+                        // Original clipboard copy logic
                         if (node.dataset.fullText) {
                             navigator.clipboard.writeText(node.dataset.fullText)
                                 .then(() => {
